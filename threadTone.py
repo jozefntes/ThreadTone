@@ -166,6 +166,7 @@ if __name__=="__main__":
     for line in range(numLines):
         i += 1
         bestLine = 0
+        bestPin = None  # Will be set to best pin or fallback
         oldCoord = coords[oldPin]
 
         # Loop over possible lines
@@ -182,6 +183,17 @@ if __name__=="__main__":
             if (lineSum > bestLine) and not(pin in previousPins):
                 bestLine = lineSum
                 bestPin = pin
+        
+        # If no valid pin found, use the next available pin not in previousPins
+        if bestPin is None:
+            for index in range(1, numPins):
+                pin = (oldPin + index) % numPins
+                if not(pin in previousPins):
+                    bestPin = pin
+                    break
+            # If all pins are in previousPins, just use the next pin
+            if bestPin is None:
+                bestPin = (oldPin + 1) % numPins
 
         # Update previous pins
         if len(previousPins) >= minLoop:
@@ -199,12 +211,15 @@ if __name__=="__main__":
         # plot results
         xLine, yLine = linePixels(coords[bestPin], coord)
         imgResult[yLine, xLine] = 0
-        cv2.imshow('image', imgResult)
-        cv2.waitKey(1)
+        try:
+            cv2.imshow('image', imgResult)
+            cv2.waitKey(1)
+        except cv2.error:
+            pass  # Display not available in headless environment
 
-        # Break if no lines possible
-        if bestPin == oldPin:
-            break
+        # Break if no lines possible (commented out to draw all requested lines)
+        # if bestPin == oldPin:
+        #     break
 
         # Prepare for next loop
         oldPin = bestPin
@@ -218,8 +233,11 @@ if __name__=="__main__":
     print("\n[+] Image threaded")
 
     # Wait for user and save before exit
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    try:
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    except cv2.error:
+        pass  # Display not available in headless environment
     cv2.imwrite('./threaded.png', imgResult)
 
     svg_output = open('threaded.svg','wb')
@@ -246,5 +264,21 @@ if __name__=="__main__":
     for l in lines:
         csv_output.write(csver(coords[l[0]],coords[l[1]]).encode('utf8'))
     csv_output.close()
+
+    # Save pin sequence for string art creation
+    pin_sequence = open('pin_sequence.txt','w')
+    pin_sequence.write("# String Art Pin Sequence\n")
+    pin_sequence.write(f"# Total pins: {numPins}, Total lines: {len(lines)}\n")
+    pin_sequence.write(f"# Start at pin {lines[0][0]}, then follow the sequence:\n\n")
+    for i, l in enumerate(lines):
+        pin_sequence.write(f"{i+1}. Pin {l[0]} -> Pin {l[1]}\n")
+    pin_sequence.close()
+    
+    # Save simple pin list (just the destination pins in order)
+    pin_list = open('pin_list.txt','w')
+    pin_list.write(f"{lines[0][0]}\n")  # Starting pin
+    for l in lines:
+        pin_list.write(f"{l[1]}\n")  # Destination pin
+    pin_list.close()
 
 sys.exit()
